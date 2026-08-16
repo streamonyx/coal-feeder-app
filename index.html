@@ -1,0 +1,908 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Feeder Control</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#15181c">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Feeder">
+<style>
+  :root{
+    --bg:#15181c;
+    --panel:#1c2126;
+    --panel-2:#232830;
+    --line:#2e343c;
+    --text:#e9e7e0;
+    --text-dim:#9aa1a9;
+    --amber:#e8a33d;
+    --amber-dim:#7a5a24;
+    --steel:#5c7a94;
+    --good:#5cb37a;
+    --bad:#d16457;
+    --mono:'JetBrains Mono','Roboto Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+    --sans:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{height:100%;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--text);
+    font-family:var(--sans);
+    display:flex;
+    flex-direction:column;
+    height:100vh;
+    overflow:hidden;
+  }
+  /* Header */
+  header{
+    padding:14px 18px 10px;
+    border-bottom:1px solid var(--line);
+    flex-shrink:0;
+  }
+  header .title-row{display:flex;align-items:center;justify-content:space-between;}
+  header h1{
+    font-size:15px;
+    letter-spacing:.08em;
+    text-transform:uppercase;
+    margin:0;
+    font-weight:700;
+    color:var(--text);
+  }
+  header h1 span{color:var(--amber);}
+  .gear-btn{
+    background:none;border:none;color:var(--text-dim);
+    font-size:18px;cursor:pointer;padding:4px 6px;line-height:1;
+  }
+  .gear-btn:hover{color:var(--text);}
+  .subline{font-size:11px;color:var(--text-dim);margin-top:2px;font-family:var(--mono);}
+
+  /* Views */
+  main{flex:1;overflow-y:auto;padding:16px 16px 90px;}
+  .view{display:none;}
+  .view.active{display:block;}
+
+  /* Feeder view */
+  .baseline-total{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:10px;
+    padding:14px 16px;
+    margin-bottom:16px;
+    display:flex;
+    justify-content:space-between;
+    align-items:baseline;
+  }
+  .baseline-total .label{font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--text-dim);}
+  .baseline-total .value{font-family:var(--mono);font-size:20px;color:var(--amber);font-weight:700;}
+
+  .section-label{
+    font-size:11px;text-transform:uppercase;letter-spacing:.08em;
+    color:var(--text-dim);margin:18px 0 8px;font-weight:600;
+  }
+
+  .rpm-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;}
+  .rpm-field{
+    background:var(--panel);border:1px solid var(--line);border-radius:8px;
+    padding:8px 10px;
+  }
+  .rpm-field label{display:block;font-size:10px;color:var(--text-dim);margin-bottom:3px;font-family:var(--mono);}
+  .rpm-field input{
+    width:100%;background:transparent;border:none;color:var(--text);
+    font-family:var(--mono);font-size:16px;outline:none;
+  }
+
+  .btn-primary{
+    width:100%;margin-top:14px;padding:13px;border:none;border-radius:8px;
+    background:var(--amber);color:#1a1408;font-weight:700;font-size:13px;
+    letter-spacing:.04em;text-transform:uppercase;cursor:pointer;
+  }
+  .btn-primary:active{opacity:.85;}
+
+  table.results{width:100%;border-collapse:collapse;margin-top:16px;font-size:12.5px;}
+  table.results th{
+    text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.05em;
+    color:var(--text-dim);padding:6px 6px;border-bottom:1px solid var(--line);font-weight:600;
+  }
+  table.results td{
+    padding:8px 6px;border-bottom:1px solid var(--line);font-family:var(--mono);
+  }
+  table.results tr.total td{font-weight:700;color:var(--amber);border-top:1px solid var(--amber-dim);}
+  .diff-pos{color:var(--good);}
+  .diff-neg{color:var(--bad);}
+
+  .summary-card{
+    margin-top:14px;background:var(--panel);border:1px solid var(--line);
+    border-radius:10px;padding:12px 14px;font-size:13px;line-height:1.5;
+  }
+  .summary-card b{color:var(--amber);}
+
+  .baseline-table{width:100%;border-collapse:collapse;font-size:12px;margin-top:4px;}
+  .baseline-table th{text-align:left;color:var(--text-dim);font-size:10px;text-transform:uppercase;padding:5px 6px;border-bottom:1px solid var(--line);}
+  .baseline-table td{padding:5px 6px;font-family:var(--mono);border-bottom:1px solid var(--line);}
+  .baseline-table input{width:70px;background:var(--panel);border:1px solid var(--line);border-radius:5px;color:var(--text);font-family:var(--mono);padding:4px 6px;font-size:12px;}
+  .btn-secondary{
+    margin-top:10px;padding:9px 12px;border-radius:7px;border:1px solid var(--line);
+    background:var(--panel-2);color:var(--text-dim);font-size:11px;cursor:pointer;
+    text-transform:uppercase;letter-spacing:.04em;
+  }
+  .btn-secondary:disabled{opacity:.4;cursor:not-allowed;}
+  .lock-btn{
+    background:var(--panel-2);border:1px solid var(--line);border-radius:7px;
+    color:var(--text-dim);font-size:11px;padding:5px 10px;cursor:pointer;
+  }
+  .lock-btn.unlocked{color:var(--good);border-color:var(--good);}
+  .pin-dots{display:flex;gap:10px;justify-content:center;margin:16px 0;}
+  .pin-dots span{width:14px;height:14px;border-radius:50%;border:1px solid var(--line);background:var(--panel-2);}
+  .pin-dots span.filled{background:var(--amber);border-color:var(--amber);}
+  .pin-keypad{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:14px;}
+  .pin-keypad button{
+    padding:14px 0;border-radius:8px;border:1px solid var(--line);background:var(--panel-2);
+    color:var(--text);font-size:16px;font-family:var(--mono);
+  }
+  .pin-error{color:var(--bad);font-size:11px;text-align:center;min-height:14px;margin-top:6px;}
+  .offline-banner{
+    background:rgba(209,100,87,.12);border:1px solid var(--bad);color:var(--bad);
+    border-radius:8px;padding:9px 12px;font-size:12px;margin-bottom:12px;line-height:1.4;
+  }
+
+  /* Chat view */
+  .chat-log{display:flex;flex-direction:column;gap:10px;padding-bottom:150px;}
+  .msg{max-width:86%;padding:10px 12px;border-radius:10px;font-size:13.5px;line-height:1.45;white-space:pre-wrap;}
+  .msg.user{align-self:flex-end;background:var(--amber-dim);color:#fff3dd;border-bottom-right-radius:3px;}
+  .msg.assistant{align-self:flex-start;background:var(--panel);border:1px solid var(--line);border-bottom-left-radius:3px;}
+  .msg.tool{align-self:center;background:none;border:1px dashed var(--steel);color:var(--steel);font-family:var(--mono);font-size:11px;text-align:center;padding:6px 10px;}
+  .msg.system-note{align-self:center;color:var(--text-dim);font-size:11px;font-family:var(--mono);}
+
+  .chat-input-row{
+    position:fixed;left:0;right:0;bottom:60px;
+    display:flex;gap:8px;padding:10px 16px;
+    background:linear-gradient(to top, var(--bg) 60%, transparent);
+  }
+  .chat-input-row textarea{
+    flex:1;resize:none;border-radius:20px;border:1px solid var(--line);
+    background:var(--panel);color:var(--text);padding:10px 14px;font-size:13.5px;
+    font-family:var(--sans);outline:none;max-height:90px;
+  }
+  .send-btn{
+    width:42px;height:42px;border-radius:50%;border:none;background:var(--amber);
+    color:#1a1408;font-size:16px;cursor:pointer;flex-shrink:0;
+  }
+
+  /* Bottom nav */
+  nav.bottombar{
+    position:fixed;left:0;right:0;bottom:0;
+    display:flex;
+    background:var(--panel);
+    border-top:1px solid var(--line);
+    padding-bottom:env(safe-area-inset-bottom);
+  }
+  nav.bottombar button{
+    flex:1;background:none;border:none;padding:10px 0 8px;
+    color:var(--text-dim);font-family:var(--sans);font-size:11px;
+    display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;
+  }
+  nav.bottombar button .ic{font-size:19px;}
+  nav.bottombar button.active{color:var(--amber);}
+  nav.bottombar button.active .ic{filter:drop-shadow(0 0 6px rgba(232,163,61,.5));}
+
+  /* Settings modal */
+  .modal-backdrop{
+    position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;
+    align-items:flex-end;justify-content:center;z-index:50;
+  }
+  .modal-backdrop.open{display:flex;}
+  .modal{
+    background:var(--panel);width:100%;max-width:480px;border-radius:16px 16px 0 0;
+    padding:20px 20px calc(20px + env(safe-area-inset-bottom));border:1px solid var(--line);border-bottom:none;
+  }
+  .modal h2{font-size:13px;text-transform:uppercase;letter-spacing:.06em;margin:0 0 14px;color:var(--text-dim);}
+  .modal label{display:block;font-size:11px;color:var(--text-dim);margin-bottom:5px;margin-top:14px;}
+  .modal input, .modal select{
+    width:100%;background:var(--panel-2);border:1px solid var(--line);border-radius:8px;
+    color:var(--text);padding:10px 12px;font-family:var(--mono);font-size:13px;outline:none;
+  }
+  .modal .row{display:flex;gap:16px;margin-top:20px;}
+  .modal button{flex:1;padding:11px;border-radius:8px;border:none;font-weight:700;font-size:12px;text-transform:uppercase;cursor:pointer;}
+  .modal .save{background:var(--amber);color:#1a1408;}
+  .modal .close{background:var(--panel-2);color:var(--text-dim);border:1px solid var(--line);}
+  .hint{font-size:10.5px;color:var(--text-dim);margin-top:5px;line-height:1.4;}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="title-row">
+    <h1>Feeder<span>·</span>Control</h1>
+    <button class="gear-btn" id="openSettings">⚙</button>
+  </div>
+  <div class="subline" id="statusLine">6-motor gravimetric feeder · baseline active</div>
+</header>
+
+<main>
+  <!-- FEEDER VIEW -->
+  <section class="view active" id="view-feeder">
+    <div class="baseline-total">
+      <div>
+        <div class="label">Baseline Total Output</div>
+        <div class="value" id="baselineTotalVal">0.2803 g</div>
+      </div>
+      <div>
+        <div class="label" style="text-align:right;">Motors</div>
+        <div class="value" style="font-size:16px;text-align:right;">6</div>
+      </div>
+    </div>
+
+    <div class="section-label">New RPM Readings</div>
+    <div class="rpm-grid" id="rpmGrid"></div>
+    <button class="btn-primary" id="calcBtn">Calculate</button>
+
+    <div id="resultsWrap"></div>
+
+    <div class="section-label" style="margin-top:26px;display:flex;justify-content:space-between;align-items:center;">
+      <span>Baseline Table (10 rotations)</span>
+      <button class="lock-btn" id="baselineLockBtn">🔒 Locked</button>
+    </div>
+    <table class="baseline-table" id="baselineTable"></table>
+    <button class="btn-secondary" id="saveBaselineBtn" disabled>Save as new baseline</button>
+    <div class="hint" id="baselineLockHint">Baseline is locked. Tap 🔒 above and enter your PIN to make changes.</div>
+  </section>
+
+  <!-- ASSISTANT VIEW -->
+  <section class="view" id="view-assistant">
+    <div class="offline-banner" id="offlineBanner" style="display:none;">
+      ⚠ No connection — Assistant needs internet to reach the AI provider. Feeder tab still works fully offline.
+    </div>
+    <div class="chat-log" id="chatLog">
+      <div class="msg system-note">Ask it to run a calibration, e.g. "run calibration with 983 889 915 706 1252 1157" — it can trigger the Feeder tab directly.</div>
+    </div>
+  </section>
+</main>
+
+<div class="chat-input-row" id="chatInputRow" style="display:none;">
+  <textarea id="chatInput" rows="1" placeholder="Message the assistant…"></textarea>
+  <button class="send-btn" id="sendBtn">➤</button>
+</div>
+
+<nav class="bottombar">
+  <button id="nav-feeder" class="active">
+    <span class="ic">⛭</span>Feeder
+  </button>
+  <button id="nav-assistant">
+    <span class="ic">◈</span>Assistant
+  </button>
+</nav>
+
+<!-- Baseline PIN modal -->
+<div class="modal-backdrop" id="pinBackdrop">
+  <div class="modal">
+    <h2 id="pinModalTitle">Enter Baseline PIN</h2>
+    <div class="pin-dots" id="pinDots"></div>
+    <div class="pin-error" id="pinError"></div>
+    <div class="pin-keypad">
+      <button data-k="1">1</button><button data-k="2">2</button><button data-k="3">3</button>
+      <button data-k="4">4</button><button data-k="5">5</button><button data-k="6">6</button>
+      <button data-k="7">7</button><button data-k="8">8</button><button data-k="9">9</button>
+      <button data-k="clear">Clear</button><button data-k="0">0</button><button data-k="back">⌫</button>
+    </div>
+    <div class="row">
+      <button class="close" id="pinCancel">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Settings modal -->
+<div class="modal-backdrop" id="settingsBackdrop">
+  <div class="modal">
+    <h2>Assistant Connection</h2>
+    <label>Proxy URL</label>
+    <input type="text" id="apiKeyInput" placeholder="https://your-worker.workers.dev">
+    <div class="hint">Both providers block direct browser calls (CORS). Deploy the included Cloudflare Worker with your API keys as secrets, then paste its URL here. Keys stay on Cloudflare, never in this browser.</div>
+    <label>Provider</label>
+    <select id="providerSelect">
+      <option value="cerebras">Cerebras</option>
+      <option value="ollama">Ollama Cloud</option>
+    </select>
+    <label>Model</label>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <select id="modelSelect" style="flex:1;"></select>
+      <button type="button" id="refreshModelsBtn" class="btn-secondary" style="margin:0;padding:10px 12px;">↻</button>
+    </div>
+    <div class="hint" id="modelListHint">Tap ↻ to load the current model list for this provider.</div>
+    <div class="row">
+      <button class="close" id="closeSettings">Close</button>
+      <button class="save" id="saveSettings">Save</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ---------- State ---------- */
+const DEFAULT_BASELINE = [
+  { rpm: 1091, coal: 0.0495 },
+  { rpm: 1064, coal: 0.0468 },
+  { rpm: 986,  coal: 0.0532 },
+  { rpm: 925,  coal: 0.0385 },
+  { rpm: 1378, coal: 0.0558 },
+  { rpm: 1280, coal: 0.0365 },
+];
+
+let baseline = JSON.parse(localStorage.getItem('feeder_baseline') || 'null') || DEFAULT_BASELINE;
+let baselinePin = localStorage.getItem('baseline_pin') || '';   // '' means no PIN set yet
+let baselineUnlocked = false;
+
+/* ---------- Baseline PIN lock ---------- */
+let pinEntry = '';
+let pinMode = 'unlock';    // 'unlock' | 'set'
+let pinResolve = null;
+
+function openPinModal(mode){
+  return new Promise((resolve)=>{
+    pinMode = mode;
+    pinResolve = resolve;
+    pinEntry = '';
+    document.getElementById('pinModalTitle').textContent =
+      mode === 'set' ? 'Set a New Baseline PIN' : 'Enter Baseline PIN';
+    document.getElementById('pinError').textContent = '';
+    renderPinDots();
+    document.getElementById('pinBackdrop').classList.add('open');
+  });
+}
+function closePinModal(result){
+  document.getElementById('pinBackdrop').classList.remove('open');
+  if(pinResolve){ pinResolve(result); pinResolve = null; }
+}
+function renderPinDots(){
+  const wrap = document.getElementById('pinDots');
+  wrap.innerHTML = '';
+  for(let i=0;i<4;i++){
+    const dot = document.createElement('span');
+    if(i < pinEntry.length) dot.classList.add('filled');
+    wrap.appendChild(dot);
+  }
+}
+document.querySelectorAll('.pin-keypad button').forEach(btn=>{
+  btn.onclick = ()=>{
+    const k = btn.dataset.k;
+    if(k === 'clear'){ pinEntry=''; }
+    else if(k === 'back'){ pinEntry = pinEntry.slice(0,-1); }
+    else if(pinEntry.length < 4){ pinEntry += k; }
+    renderPinDots();
+    document.getElementById('pinError').textContent = '';
+    if(pinEntry.length === 4) handlePinComplete();
+  };
+});
+document.getElementById('pinCancel').onclick = ()=> closePinModal(false);
+
+function handlePinComplete(){
+  if(pinMode === 'set'){
+    baselinePin = pinEntry;
+    localStorage.setItem('baseline_pin', baselinePin);
+    closePinModal(true);
+    return;
+  }
+  if(pinEntry === baselinePin){
+    closePinModal(true);
+  }else{
+    document.getElementById('pinError').textContent = 'Incorrect PIN — try again.';
+    pinEntry = '';
+    renderPinDots();
+  }
+}
+
+function setBaselineLockUI(unlocked){
+  baselineUnlocked = unlocked;
+  const btn = document.getElementById('baselineLockBtn');
+  const hint = document.getElementById('baselineLockHint');
+  const saveBtn = document.getElementById('saveBaselineBtn');
+  btn.textContent = unlocked ? '🔓 Unlocked' : '🔒 Locked';
+  btn.classList.toggle('unlocked', unlocked);
+  saveBtn.disabled = !unlocked;
+  hint.textContent = unlocked
+    ? 'Baseline unlocked — edit values below, then Save. It re-locks automatically after saving or leaving this tab.'
+    : 'Baseline is locked. Tap 🔒 above and enter your PIN to make changes.';
+  document.querySelectorAll('#baselineTable input').forEach(inp=>{
+    inp.readOnly = !unlocked;
+  });
+}
+
+document.getElementById('baselineLockBtn').onclick = async ()=>{
+  if(baselineUnlocked){
+    setBaselineLockUI(false);
+    return;
+  }
+  const mode = baselinePin ? 'unlock' : 'set';
+  const ok = await openPinModal(mode);
+  if(ok) setBaselineLockUI(true);
+};
+
+// Auto re-lock when leaving the Feeder tab
+function relockBaselineOnNav(){ if(baselineUnlocked) setBaselineLockUI(false); }
+let proxyUrl = localStorage.getItem('cerebras_proxy_url') || '';
+let provider = localStorage.getItem('assistant_provider') || 'cerebras';
+let model = localStorage.getItem('assistant_model') || '';
+
+// Cached model lists per provider, refreshed on demand from the provider's real /v1/models endpoint.
+// Known-good tool-calling default per provider, used only until a real list is fetched.
+const FALLBACK_MODEL = {
+  cerebras: 'gpt-oss-120b',   // confirmed to support tool calling on Cerebras as of Aug 2026
+  ollama:   'gpt-oss:120b-cloud',
+};
+let modelListCache = JSON.parse(localStorage.getItem('assistant_model_lists') || '{}');
+
+if(!model) model = FALLBACK_MODEL[provider];
+
+function populateModelSelect(){
+  const sel = document.getElementById('modelSelect');
+  const hint = document.getElementById('modelListHint');
+  sel.innerHTML = '';
+  const list = modelListCache[provider];
+  const options = (list && list.length) ? list : [FALLBACK_MODEL[provider]];
+  options.forEach(m=>{
+    const opt = document.createElement('option');
+    opt.value = m; opt.textContent = m;
+    sel.appendChild(opt);
+  });
+  if(!options.includes(model)) model = options[0];
+  sel.value = model;
+  hint.textContent = (list && list.length)
+    ? `Live list from ${provider}, ${list.length} model(s). Tap ↻ to refresh.`
+    : `Showing a known-working default. Tap ↻ to load the real list for this provider.`;
+}
+
+async function refreshModelList(){
+  const hint = document.getElementById('modelListHint');
+  if(!proxyUrl){ hint.textContent = 'Set a Proxy URL first.'; return; }
+  hint.textContent = 'Loading models…';
+  try{
+    const res = await fetch(proxyUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ provider, action: 'list_models' })
+    });
+    const raw = await res.text();
+    let data;
+    try{ data = JSON.parse(raw); } catch{ throw new Error(`Non-JSON response (status ${res.status})`); }
+    if(!res.ok){
+      const msg = data.error?.message || data.error || raw;
+      throw new Error(typeof msg === 'string' ? msg : JSON.stringify(msg));
+    }
+    const ids = (data.data || []).map(m => m.id || m.name).filter(Boolean).sort();
+    if(!ids.length) throw new Error('Provider returned an empty model list.');
+    modelListCache[provider] = ids;
+    localStorage.setItem('assistant_model_lists', JSON.stringify(modelListCache));
+    populateModelSelect();
+  }catch(err){
+    hint.textContent = `Couldn't load models: ${err.message}`;
+  }
+}
+document.getElementById('refreshModelsBtn').onclick = refreshModelList;
+let chatHistory = []; // running message list sent to the API
+
+/* ---------- Nav ---------- */
+const views = { feeder: document.getElementById('view-feeder'), assistant: document.getElementById('view-assistant') };
+const navBtns = { feeder: document.getElementById('nav-feeder'), assistant: document.getElementById('nav-assistant') };
+const chatInputRow = document.getElementById('chatInputRow');
+
+function showView(name){
+  Object.keys(views).forEach(k=>{
+    views[k].classList.toggle('active', k===name);
+    navBtns[k].classList.toggle('active', k===name);
+  });
+  chatInputRow.style.display = name==='assistant' ? 'flex' : 'none';
+  if(name==='assistant') setTimeout(()=>document.getElementById('chatInput').focus(), 50);
+}
+navBtns.feeder.onclick = ()=>showView('feeder');
+navBtns.assistant.onclick = ()=>{ relockBaselineOnNav(); showView('assistant'); };
+
+/* ---------- Feeder logic ---------- */
+function baselineTotal(){ return baseline.reduce((s,m)=>s+m.coal,0); }
+
+function renderBaselineTotal(){
+  document.getElementById('baselineTotalVal').textContent = baselineTotal().toFixed(4) + ' g';
+}
+
+function renderRpmGrid(){
+  const grid = document.getElementById('rpmGrid');
+  grid.innerHTML = '';
+  baseline.forEach((m,i)=>{
+    const div = document.createElement('div');
+    div.className = 'rpm-field';
+    div.innerHTML = `<label>Motor ${i+1} RPM</label><input type="number" inputmode="numeric" id="rpm-${i}" placeholder="${m.rpm}">`;
+    grid.appendChild(div);
+  });
+}
+
+function renderBaselineTable(){
+  const t = document.getElementById('baselineTable');
+  let html = `<tr><th>Motor</th><th>RPM</th><th>Coal (g)</th></tr>`;
+  baseline.forEach((m,i)=>{
+    html += `<tr>
+      <td>M${i+1}</td>
+      <td><input type="number" id="bl-rpm-${i}" value="${m.rpm}" readonly></td>
+      <td><input type="number" step="0.0001" id="bl-coal-${i}" value="${m.coal}" readonly></td>
+    </tr>`;
+  });
+  t.innerHTML = html;
+}
+
+function runCalibration(rpms){
+  // rpms: array of 6 numbers
+  const total = baselineTotal();
+  let rows = [];
+  let estTotal = 0;
+  baseline.forEach((m,i)=>{
+    const rate = m.coal / m.rpm;
+    const newRpm = rpms[i];
+    const est = newRpm * rate;
+    const diff = est - m.coal;
+    estTotal += est;
+    rows.push({ motor:i+1, newRpm, baseRpm:m.rpm, baseCoal:m.coal, est, diff });
+  });
+  const totalDiff = estTotal - total;
+  const pct = (totalDiff/total)*100;
+  renderResults(rows, estTotal, totalDiff, pct);
+  return { rows, estTotal, totalDiff, pct };
+}
+
+function renderResults(rows, estTotal, totalDiff, pct){
+  const wrap = document.getElementById('resultsWrap');
+  let html = `<table class="results"><tr>
+    <th>Motor</th><th>New RPM</th><th>Baseline</th><th>Estimate</th><th>Δ</th>
+  </tr>`;
+  rows.forEach(r=>{
+    const cls = r.diff >= 0 ? 'diff-pos' : 'diff-neg';
+    html += `<tr>
+      <td>M${r.motor}</td>
+      <td>${r.newRpm}</td>
+      <td>${r.baseRpm} → ${r.baseCoal.toFixed(4)}g</td>
+      <td>${r.est.toFixed(4)}g</td>
+      <td class="${cls}">${r.diff>=0?'+':''}${r.diff.toFixed(4)}g</td>
+    </tr>`;
+  });
+  const totalCls = totalDiff >= 0 ? 'diff-pos' : 'diff-neg';
+  html += `<tr class="total">
+    <td colspan="3">TOTAL</td>
+    <td>${estTotal.toFixed(4)}g</td>
+    <td class="${totalCls}">${totalDiff>=0?'+':''}${totalDiff.toFixed(4)}g</td>
+  </tr></table>`;
+  const dir = pct >= 0 ? 'increased' : 'decreased';
+  html += `<div class="summary-card">Overall output <b>${dir} ${Math.abs(pct).toFixed(2)}%</b> vs. baseline.</div>`;
+  wrap.innerHTML = html;
+}
+
+document.getElementById('calcBtn').onclick = ()=>{
+  const rpms = baseline.map((_,i)=>{
+    const el = document.getElementById(`rpm-${i}`);
+    const v = parseFloat(el.value);
+    return isNaN(v) ? baseline[i].rpm : v;
+  });
+  runCalibration(rpms);
+};
+
+document.getElementById('saveBaselineBtn').onclick = ()=>{
+  if(!baselineUnlocked) return; // safety net — button is disabled anyway
+  baseline = baseline.map((m,i)=>({
+    rpm: parseFloat(document.getElementById(`bl-rpm-${i}`).value) || m.rpm,
+    coal: parseFloat(document.getElementById(`bl-coal-${i}`).value) || m.coal,
+  }));
+  localStorage.setItem('feeder_baseline', JSON.stringify(baseline));
+  renderBaselineTotal();
+  renderRpmGrid();
+  setBaselineLockUI(false); // re-lock immediately after a successful save
+  document.getElementById('statusLine').textContent = '6-motor gravimetric feeder · baseline updated';
+};
+
+function initFeeder(){
+  renderBaselineTotal();
+  renderRpmGrid();
+  renderBaselineTable();
+  setBaselineLockUI(false);
+}
+initFeeder();
+
+/* ---------- Settings modal ---------- */
+const backdrop = document.getElementById('settingsBackdrop');
+document.getElementById('openSettings').onclick = ()=>{
+  document.getElementById('apiKeyInput').value = proxyUrl;
+  document.getElementById('providerSelect').value = provider;
+  populateModelSelect();
+  backdrop.classList.add('open');
+};
+document.getElementById('providerSelect').onchange = (e)=>{
+  provider = e.target.value;
+  model = (modelListCache[provider] && modelListCache[provider][0]) || FALLBACK_MODEL[provider];
+  populateModelSelect();
+};
+document.getElementById('closeSettings').onclick = ()=> backdrop.classList.remove('open');
+document.getElementById('saveSettings').onclick = ()=>{
+  proxyUrl = document.getElementById('apiKeyInput').value.trim().replace(/\/$/, '');
+  provider = document.getElementById('providerSelect').value;
+  model = document.getElementById('modelSelect').value;
+  localStorage.setItem('cerebras_proxy_url', proxyUrl);
+  localStorage.setItem('assistant_provider', provider);
+  localStorage.setItem('assistant_model', model);
+  backdrop.classList.remove('open');
+};
+
+/* ---------- Assistant / Cerebras chat with tool calling ---------- */
+const chatLog = document.getElementById('chatLog');
+const chatInput = document.getElementById('chatInput');
+const sendBtn = document.getElementById('sendBtn');
+
+function scrollChatToBottom(){
+  requestAnimationFrame(()=>{
+    const m = chatLog.parentElement;
+    m.scrollTop = m.scrollHeight;
+  });
+}
+
+function addMsg(role, text){
+  const div = document.createElement('div');
+  div.className = `msg ${role}`;
+  div.textContent = text;
+  chatLog.appendChild(div);
+  scrollChatToBottom();
+  return div;
+}
+
+function addToolNote(text){
+  const div = document.createElement('div');
+  div.className = 'msg tool';
+  div.textContent = text;
+  chatLog.appendChild(div);
+  scrollChatToBottom();
+}
+
+const TOOLS = [
+  {
+    type: "function",
+    function: {
+      name: "run_calibration",
+      description: "Run a feeder calibration using new RPM readings for all 6 motors. Computes estimated coal release per motor against the active baseline and updates the Feeder tab with results.",
+      parameters: {
+        type: "object",
+        properties: {
+          rpms: {
+            type: "array",
+            items: { type: "number" },
+            minItems: 6,
+            maxItems: 6,
+            description: "RPM readings for Motor 1 through Motor 6, in order."
+          }
+        },
+        required: ["rpms"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_baseline",
+      description: "Get the current active calibration baseline (RPM and coal grams per rotation for each of the 6 motors) and the baseline total output.",
+      parameters: { type: "object", properties: {} }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "update_baseline",
+      description: "Propose a new calibration baseline for all 6 motors, when the user has clearly given a FULL baseline data set in chat — meaning both an RPM and a coal-grams-per-10-rotations value for every one of the 6 motors, intended to replace the stored baseline (not a one-off calibration test). Do NOT call this for a plain list of 6 RPM numbers with no coal values — that's a calibration request, use run_calibration instead. This tool never writes data silently: calling it will prompt the human for their PIN, and the update only happens if they enter it correctly. If the user's data is incomplete or ambiguous (e.g. missing coal values, or fewer/more than 6 motors), ask them to clarify instead of calling this tool.",
+      parameters: {
+        type: "object",
+        properties: {
+          motors: {
+            type: "array",
+            minItems: 6,
+            maxItems: 6,
+            description: "Exactly 6 entries, Motor 1 through Motor 6 in order.",
+            items: {
+              type: "object",
+              properties: {
+                rpm: { type: "number" },
+                coal: { type: "number", description: "grams of coal per 10 rotations" }
+              },
+              required: ["rpm", "coal"]
+            }
+          }
+        },
+        required: ["motors"]
+      }
+    }
+  }
+];
+
+async function executeTool(name, args){
+  if(name === 'run_calibration'){
+    const rpms = args.rpms;
+    const result = runCalibration(rpms);
+    showView('assistant'); // stay in chat, but data is live on feeder tab now
+    addToolNote(`⛭ run_calibration executed — Feeder tab updated (${result.estTotal.toFixed(4)}g total, ${result.pct>=0?'+':''}${result.pct.toFixed(2)}%)`);
+    return {
+      total_estimated_g: Number(result.estTotal.toFixed(4)),
+      total_diff_g: Number(result.totalDiff.toFixed(4)),
+      pct_change: Number(result.pct.toFixed(2)),
+      per_motor: result.rows.map(r=>({
+        motor: r.motor, new_rpm: r.newRpm, estimated_g: Number(r.est.toFixed(4)), diff_g: Number(r.diff.toFixed(4))
+      }))
+    };
+  }
+  if(name === 'get_baseline'){
+    return {
+      total_g: Number(baselineTotal().toFixed(4)),
+      motors: baseline.map((m,i)=>({motor:i+1, rpm:m.rpm, coal_g:m.coal}))
+    };
+  }
+  if(name === 'update_baseline'){
+    const motors = args.motors;
+    if(!Array.isArray(motors) || motors.length !== 6){
+      return { error: 'Must provide exactly 6 motor entries, each with rpm and coal.' };
+    }
+    for(const m of motors){
+      if(typeof m.rpm !== 'number' || typeof m.coal !== 'number' || m.rpm <= 0 || m.coal <= 0){
+        return { error: 'Each motor entry needs a positive numeric rpm and coal value.' };
+      }
+    }
+    addToolNote('⏳ Baseline update requested from chat — enter your PIN to confirm.');
+    const mode = baselinePin ? 'unlock' : 'set';
+    const confirmed = await openPinModal(mode);
+    if(!confirmed){
+      addToolNote('✖ Baseline update cancelled — PIN not confirmed, nothing changed.');
+      return { status: 'cancelled', message: 'User did not confirm PIN; baseline is unchanged.' };
+    }
+    baseline = motors.map(m => ({ rpm: m.rpm, coal: m.coal }));
+    localStorage.setItem('feeder_baseline', JSON.stringify(baseline));
+    renderBaselineTotal();
+    renderRpmGrid();
+    renderBaselineTable();
+    setBaselineLockUI(false);
+    addToolNote(`✔ Baseline updated via chat (PIN confirmed) — new total ${baselineTotal().toFixed(4)}g`);
+    return {
+      status: 'updated',
+      total_g: Number(baselineTotal().toFixed(4)),
+      motors: baseline.map((m,i)=>({motor:i+1, rpm:m.rpm, coal_g:m.coal}))
+    };
+  }
+  return { error: 'unknown tool' };
+}
+
+async function callProvider(messages){
+  if(!proxyUrl) throw new Error('No proxy URL set — open ⚙ settings.');
+  if(!/^https:\/\/.+/.test(proxyUrl)) throw new Error('Proxy URL looks invalid — should start with https://');
+
+  let res;
+  try{
+    res = await fetch(proxyUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        provider,
+        model,
+        messages,
+        tools: TOOLS,
+        tool_choice: 'auto',
+        temperature: 0.2
+      })
+    });
+  }catch(networkErr){
+    throw new Error(`Could not reach the Worker at ${proxyUrl} — check the URL and your connection.`);
+  }
+
+  const raw = await res.text();
+  let data;
+  try{ data = JSON.parse(raw); }
+  catch{ throw new Error(`Worker returned a non-JSON response (status ${res.status}): ${raw.slice(0,200)}`); }
+
+  if(!res.ok){
+    const msg = data.error?.message || data.error || data.message || raw;
+    throw new Error(`${provider} error ${res.status}: ${typeof msg==='string' ? msg : JSON.stringify(msg)}`);
+  }
+  if(!data.choices || !data.choices[0]){
+    throw new Error(`Unexpected response shape from ${provider}: ${raw.slice(0,200)}`);
+  }
+  return data;
+}
+
+async function sendMessage(){
+  const text = chatInput.value.trim();
+  if(!text) return;
+  if(!navigator.onLine){
+    addToolNote('⚠ No connection — reconnect to use the Assistant. Feeder tab works offline.');
+    return;
+  }
+  if(!proxyUrl){
+    addToolNote('No proxy URL set — open ⚙ settings and paste your Worker URL first.');
+    return;
+  }
+  chatInput.value = '';
+  addMsg('user', text);
+  chatHistory.push({ role:'user', content: text });
+
+  sendBtn.disabled = true;
+  const thinking = addMsg('assistant', '…');
+
+  try{
+    let messages = [
+      { role: 'system', content: 'You are the control assistant for a 6-motor gravimetric coal feeder. Use run_calibration when the user gives RPM values to test against the current baseline (a one-off check, nothing is saved). Use get_baseline to read the current baseline. Use update_baseline ONLY when the user has given a complete new baseline — RPM AND coal-grams-per-10-rotations for all 6 motors, meant to replace the stored one. That tool always prompts the human for a PIN before anything is written; you never bypass this and you never claim a baseline was updated unless the tool result says status: updated. If the user gives only RPM numbers with no coal values, treat it as a calibration test (run_calibration), not a baseline update, and say so if unsure. Keep replies short and factual.' },
+      ...chatHistory
+    ];
+
+    let data = await callProvider(messages);
+    let choice = data.choices[0];
+
+    // Handle one or more rounds of tool calls
+    while(choice.message.tool_calls && choice.message.tool_calls.length){
+      chatHistory.push(choice.message);
+      for(const tc of choice.message.tool_calls){
+        const args = JSON.parse(tc.function.arguments || '{}');
+        const result = await executeTool(tc.function.name, args);
+        chatHistory.push({
+          role: 'tool',
+          tool_call_id: tc.id,
+          content: JSON.stringify(result)
+        });
+      }
+      messages = [
+        { role: 'system', content: 'You are the control assistant for a 6-motor gravimetric coal feeder. Baseline changes always require human PIN confirmation via the update_baseline tool result — never claim a change happened unless the tool result says status: updated.' },
+        ...chatHistory
+      ];
+      data = await callProvider(messages);
+      choice = data.choices[0];
+    }
+
+    thinking.remove();
+    const reply = choice.message.content || '(no response)';
+    addMsg('assistant', reply);
+    chatHistory.push({ role:'assistant', content: reply });
+
+  }catch(err){
+    thinking.remove();
+    addMsg('assistant', `Error: ${err.message}`);
+  }finally{
+    sendBtn.disabled = false;
+  }
+}
+
+/* ---------- Offline detection (Assistant tab only — Feeder works fully offline) ---------- */
+function updateOnlineState(){
+  const offline = !navigator.onLine;
+  document.getElementById('offlineBanner').style.display = offline ? 'block' : 'none';
+  sendBtn.disabled = offline;
+  chatInput.disabled = offline;
+  chatInput.placeholder = offline ? 'Offline — reconnect to chat' : 'Message the assistant…';
+}
+window.addEventListener('online', updateOnlineState);
+window.addEventListener('offline', updateOnlineState);
+updateOnlineState();
+
+/* ---------- Register service worker (offline app shell) ---------- */
+if('serviceWorker' in navigator){
+  window.addEventListener('load', ()=>{
+    navigator.serviceWorker.register('service-worker.js').catch(()=>{ /* non-fatal */ });
+  });
+}
+
+sendBtn.onclick = sendMessage;
+chatInput.addEventListener('keydown', (e)=>{
+  if(e.key === 'Enter' && !e.shiftKey){
+    e.preventDefault();
+    sendMessage();
+  }
+});
+chatInput.addEventListener('input', ()=>{
+  chatInput.style.height = 'auto';
+  chatInput.style.height = Math.min(chatInput.scrollHeight, 90) + 'px';
+});
+
+if(!proxyUrl){
+  setTimeout(()=>{ backdrop.classList.add('open'); }, 300);
+}
+</script>
+</body>
+</html>
